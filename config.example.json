@@ -1,0 +1,8 @@
+{
+  "_说明": "复制为 config.json 后按需修改。也可用环境变量覆盖（DRA_SOURCE / DRA_APP_EXE / DRA_DEBUG_PORT / DRA_USER_DATA / DRA_ARTIFACTS）",
+  "sourcePath": "D:/续声/抖音回复助手/rebuild",
+  "appExe": "D:/续声/抖音回复助手/抖音回复助手.exe",
+  "debugPort": 9223,
+  "userData": "C:/Users/Administrator/AppData/Roaming/douyin-reply-assistant",
+  "artifactsDir": ""
+}
