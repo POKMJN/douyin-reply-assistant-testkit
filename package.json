@@ -1,0 +1,25 @@
+{
+  "name": "douyin-reply-assistant-testkit",
+  "version": "1.0.0",
+  "description": "抖音回复助手的测试工具链：单元测试 + 对话模拟器 + 性能基准 + 压力测试",
+  "private": true,
+  "scripts": {
+    "test": "node --test unit/*.test.cjs",
+    "test:loop": "node run-all.cjs",
+    "unit": "node --test unit/*.test.cjs",
+    "sim:chat": "node sim/conversation-sim.cjs",
+    "sim:spark": "node sim/spark-sim.cjs 200",
+    "sim:morning": "node sim/morning-sim.cjs 100",
+    "bench": "node bench/ai-bench.cjs",
+    "bench:chat": "node bench/ai-bench-chat.cjs 300",
+    "bench:volume": "node bench/ai-bench-volume.cjs 1000",
+    "soak": "node soak/soak-3h.cjs 180",
+    "verify:ui": "node verify/verify-ui-live.cjs",
+    "verify:train": "node verify/verify-train.cjs",
+    "verify:branding": "node verify/check-branding.cjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {}
+}
