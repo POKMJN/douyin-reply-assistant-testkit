@@ -104,7 +104,7 @@ async function probeApp(cdpProbe) {
   const finding = { at: new Date().toISOString() }
   try {
     if (cdpProbe) {
-      const list = await (await fetch('http://127.0.0.1:${config().debugPort}/json', { signal: AbortSignal.timeout(3000) })).json()
+      const list = await (await fetch(`http://127.0.0.1:${config().debugPort}/json`, { signal: AbortSignal.timeout(3000) })).json()
       const main = list.filter((t) => t.type === 'page').find((t) => t.title === '抖音回复助手')
       finding.targets = list.filter((t) => t.type === 'page').length
       if (main) {
@@ -147,7 +147,7 @@ async function probeApp(cdpProbe) {
 // ---- 真实模型质量探针（每 15 分钟一次）----
 let lastQualityProbe = 0
 async function qualityProbe() {
-  const list = await fetch('http://127.0.0.1:${config().debugPort}/json', { signal: AbortSignal.timeout(3000) }).then((r) => r.json()).catch(() => null)
+  const list = await fetch(`http://127.0.0.1:${config().debugPort}/json`, { signal: AbortSignal.timeout(3000) }).then((r) => r.json()).catch(() => null)
   if (!list) return null
   const main = list.filter((t) => t.type === 'page').find((t) => t.title === '抖音回复助手')
   if (!main) return null

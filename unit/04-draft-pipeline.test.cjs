@@ -489,3 +489,66 @@ test('summarizeRecentTopic：输出被消毒后写入', async () => {
   assert.ok(!/\d+\./.test(text), '分点编号被剥除')
   assert.ok(!text.includes('关系温度似乎是'))
 })
+
+test('AI 缓存优化：同视频分析与评论摘要命中本地 LRU 缓存', async () => {
+  let transportCalls = 0
+  const { ai, storage } = makeService({
+    responses: ['视频里小猫摔倒了\n话题记录：小猫摔倒视频', '好可爱哈哈', '氛围轻松搞笑'],
+    onCall: () => { transportCalls += 1 },
+  })
+  const frame = 'data:image/jpeg;base64,/9j/testframe123'
+  const media = { frames: [frame], mediaKind: 'video', detectedVideo: true, videoPageTitle: '搞笑猫咪' }
+  
+  // 首次分析媒体：触发 transport
+  const res1 = await ai.analyzeMediaFrames({ contact: storage.get().contacts[0], incoming: '[视频]', media, providers: [PROVIDER] })
+  assert.equal(res1.text, '视频里小猫摔倒了')
+  const callsAfterFirst = transportCalls
+  assert.ok(callsAfterFirst > 0, '首次分析触发模型请求')
+
+  // 第二次分析相同媒体：必须命中 LRU 缓存，0 次新增模型请求
+  const res2 = await ai.analyzeMediaFrames({ contact: storage.get().contacts[0], incoming: '[视频]', media, providers: [PROVIDER] })
+  assert.equal(res2.text, '视频里小猫摔倒了')
+  assert.equal(res2.fromCache, true)
+  assert.equal(transportCalls, callsAfterFirst, '二次相同视频 100% 走缓存，不产生网络调用')
+
+  // 评论摘要缓存验证
+  const comments = ['太好笑了', '哈哈哈哈', '救命']
+  const sum1 = await ai.summarizeComments(comments)
+  const callsAfterSum1 = transportCalls
+  const sum2 = await ai.summarizeComments(comments)
+  assert.equal(sum1, sum2)
+  assert.equal(transportCalls, callsAfterSum1, '二次相同评论摘要 100% 走缓存')
+})
+
+test('AI 缓存优化：服务端 Prefix Cache 对齐与 Token Usage 监控', async () => {
+  const { buildChatPrompt } = require('../lib/app.cjs')('electron/ai-service.cjs')
+  const contact = makeContact()
+  
+  // 模拟不同时间调用的 prompt
+  const p1 = buildChatPrompt(contact, '你好呀')
+  const p2 = buildChatPrompt(contact, '吃了吗')
+  
+  // 验证静态前缀一致性：全局原则和联系人记忆在动态时间前缀之前
+  const p1StaticPart = p1.split('【当轮时间与即时接话指引】')[0]
+  const p2StaticPart = p2.split('【当轮时间与即时接话指引】')[0]
+  assert.equal(p1StaticPart, p2StaticPart, '多轮对话中静态原则与联系人记忆前缀 100% 相同，保证服务端 Prefix Cache 命中')
+  assert.ok(p1StaticPart.length > 500, '静态前缀包含完整人设、原则与记忆')
+
+  // 验证 Token Usage 监控捕获
+  let recordedUsage = null
+  const { ai, storage } = makeService({
+    responses: ['哈哈吃过了'],
+    onCall: () => {},
+  })
+  // 注入 fake transport 返回带有 usage 统计的数据
+  ai.setTransport(async () => ({
+    choices: [{ message: { content: '哈哈吃过了' } }],
+    usage: { prompt_tokens: 1200, completion_tokens: 15, prompt_tokens_details: { cached_tokens: 1050 } },
+  }))
+  const draftRes = await ai.draft({ contact: storage.get().contacts[0], incoming: '吃了吗' })
+  assert.equal(draftRes.usage.promptTokens, 1200)
+  assert.equal(draftRes.usage.cachedTokens, 1050)
+  assert.equal(draftRes.usage.hitRate, 88)
+  const logs = storage.get().logs || []
+  assert.ok(logs.some((l) => String(l.message).includes('缓存命中 88%')), '日志中记录了缓存命中率百分比')
+})
